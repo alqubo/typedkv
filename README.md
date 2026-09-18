@@ -245,6 +245,10 @@ deno task check    # type-check + lint + fmt
 deno task sandbox  # runs sandbox.ts to try the library by hand
 ```
 
+## Credits
+
+The idea for this library came from [pagoru](https://github.com/pagoru).
+
 ## License
 
 MIT
