@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "license": "MIT",
   "exports": "./src/mod.ts",
+  "publish": {
+    "exclude": [
+      "test/",
+      "scripts/",
+      "sandbox.ts",
+      ".github/"
+    ]
+  },
   "tasks": {
     "test": "deno test --unstable-kv --allow-read --allow-write",
     "check": "deno check src test sandbox.ts && deno lint && deno fmt --check",

@@ -28,12 +28,12 @@ const users = table<User>(kv, "users", {
     typeof (v as User).name === "string",
 }).withIndexes({ email: { unique: true }, team: {} });
 
-const alberto = await users.set({ email: "a@b.com", team: "core", name: "Alberto", age: 30 });
-log("set", alberto);
+const user = await users.set({ email: "user@example.com", team: "core", name: "User", age: 30 });
+log("set", user);
 
-log("get", await users.get(alberto.id));
+log("get", await users.get(user.id));
 
-const updated = await users.update(alberto.id, { name: "Alberto G." });
+const updated = await users.update(user.id, { name: "User Edited." });
 log("partial update (createdAt kept, updatedAt refreshed)", {
   createdAt: updated.createdAt,
   updatedAt: updated.updatedAt,
@@ -41,8 +41,8 @@ log("partial update (createdAt kept, updatedAt refreshed)", {
   email: updated.email,
 });
 
-await users.set({ email: "c@d.com", team: "ops", name: "Carla" });
-await users.set({ email: "e@f.com", team: "core", name: "Eva" });
+// await users.set({ email: "c@d.com", team: "ops", name: "Carla" });
+// await users.set({ email: "e@f.com", team: "core", name: "Eva" });
 
 const page = await users.list({ limit: 2 });
 log("list ({ limit: 2 }) in insertion order", {
@@ -52,7 +52,7 @@ log("list ({ limit: 2 }) in insertion order", {
 log("list (next page)", (await users.list({ cursor: page.cursor })).rows.map((r) => r.name));
 
 try {
-  await users.update(alberto.id, { age: 31 }, { versionstamp: alberto.versionstamp });
+  await users.update(user.id, { age: 31 }, { versionstamp: user.versionstamp });
 } catch (error) {
   if (!(error instanceof ConflictError)) throw error;
   log("ConflictError", { message: error.message, expected: error.expected, actual: error.actual });
@@ -65,7 +65,7 @@ try {
   log("ValidationError", { message: error.message, value: error.value });
 }
 
-log("findBy (unique index)", await users.findBy("email", "a@b.com"));
+log("findBy (unique index)", await users.findBy("email", "user@example.com"));
 log(
   "listBy (non-unique index)",
   (await users.listBy("team", "core")).rows.map((r) => r.name),
@@ -89,6 +89,8 @@ try {
   if (!(error instanceof NotFoundError)) throw error;
   log("NotFoundError", error.message);
 }
+
+// await users.delete(user.id);
 
 log("raw keys in KV");
 for await (const entry of kv.list({ prefix: ["tables"] })) {
