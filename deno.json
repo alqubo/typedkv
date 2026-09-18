@@ -1,0 +1,25 @@
+{
+  "name": "@alqubo/typedkv",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "test": "deno test --unstable-kv --allow-read --allow-write",
+    "check": "deno check src test sandbox.ts && deno lint && deno fmt --check",
+    "sandbox": "deno run --unstable-kv --allow-read --allow-write sandbox.ts"
+  },
+  "fmt": {
+    "lineWidth": 100
+  },
+  "lint": {
+    "rules": {
+      "tags": [
+        "recommended"
+      ]
+    }
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@std/ulid": "jsr:@std/ulid@^1.0.0"
+  }
+}
