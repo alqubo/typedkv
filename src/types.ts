@@ -18,7 +18,28 @@ export interface StoredRow<T> {
 
 export type Validator<T> = (value: unknown) => value is T;
 
+export type IndexableValue = string | number | bigint | boolean;
+
+export type IndexableField<T> =
+  & {
+    [K in keyof T]-?: undefined extends T[K] ? never : T[K] extends IndexableValue ? K : never;
+  }[keyof T]
+  & string;
+
+export interface IndexDefinition {
+  unique?: boolean;
+}
+
+export type IndexDefinitions<T> = { [K in IndexableField<T>]?: IndexDefinition };
+
+export type UniqueField<T, I extends IndexDefinitions<T>> = {
+  [K in keyof I & IndexableField<T>]: I[K] extends { unique: true } ? K : never;
+}[keyof I & IndexableField<T>];
+
+export type IndexedField<T, I extends IndexDefinitions<T>> = keyof I & IndexableField<T>;
+
 export interface TableOptions<T> {
+  prefix?: Deno.KvKey;
   validate?: Validator<T>;
 }
 
@@ -37,8 +58,14 @@ export interface VersionCheck {
   versionstamp?: string | null;
 }
 
-export interface Table<T> {
+export interface Table<T, I extends IndexDefinitions<T> = Record<never, never>> {
   readonly name: string;
+
+  /**
+   * Declares the table's secondary indexes and returns the table that knows about them,
+   * so `findBy` and `listBy` only accept the fields declared here.
+   */
+  withIndexes<const J extends IndexDefinitions<T>>(indexes: J): Table<T, J>;
 
   /**
    * Creates a row with a generated id with a key you do not choose.
@@ -59,9 +86,19 @@ export interface Table<T> {
   /** Applies a partial change. `createdAt` is kept; `updatedAt` is refreshed. */
   update(id: string, patch: Partial<T>, options?: VersionCheck): Promise<Row<T>>;
 
-  /** Deletes the row. Throws `NotFoundError` when it does not exist. */
+  /** Deletes the row and its index entries. Throws `NotFoundError` when it does not exist. */
   delete(id: string, options?: VersionCheck): Promise<void>;
 
   /** Walks the table in insertion order. */
   list(options?: ListOptions): Promise<ListResult<T>>;
+
+  /** Looks a row up through a unique index. */
+  findBy<K extends UniqueField<T, I>>(field: K, value: T[K]): Promise<Row<T> | null>;
+
+  /** Walks every row holding `value` in that index, in insertion order. */
+  listBy<K extends IndexedField<T, I>>(
+    field: K,
+    value: T[K],
+    options?: ListOptions,
+  ): Promise<ListResult<T>>;
 }

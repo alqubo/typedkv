@@ -31,3 +31,23 @@ export async function withUsers(
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export interface Member {
+  email: string;
+  team: string;
+  name: string;
+}
+
+export function withMembers(
+  fn: (
+    members: Table<Member, { email: { unique: true }; team: Record<never, never> }>,
+    kv: Deno.Kv,
+  ) => Promise<void>,
+): Promise<void> {
+  return withKv(async (kv) => {
+    await fn(
+      table<Member>(kv, "members").withIndexes({ email: { unique: true }, team: {} }),
+      kv,
+    );
+  });
+}

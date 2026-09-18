@@ -94,3 +94,72 @@ Deno.test("returned rows expose the managed fields and nothing else", async () =
     assertEquals(user.email, "a@b.com");
   });
 });
+
+Deno.test("only declared indexes can be queried, and findBy only unique ones", async () => {
+  await withKv(async (kv) => {
+    interface Member {
+      email: string;
+      team: string;
+      name: string;
+    }
+    const members = table<Member>(kv, "members").withIndexes({
+      email: { unique: true },
+      team: {},
+    });
+
+    const byEmail: Row<Member> | null = await members.findBy("email", "a@b.com");
+    const byTeam = await members.listBy("team", "core");
+    assertEquals(byEmail, null);
+    assertEquals(byTeam.rows, []);
+
+    // @ts-expect-error `team` is not unique, so a single row would be arbitrary.
+    await members.findBy("team", "core");
+
+    // @ts-expect-error `name` is not indexed.
+    await members.listBy("name", "Alberto");
+
+    // @ts-expect-error the value must match the field's type.
+    await members.findBy("email", 42);
+  });
+});
+
+Deno.test("only required fields of an indexable type can be indexed", async () => {
+  await withKv((kv) => {
+    interface Member {
+      email: string;
+      age?: number;
+      tags: string[];
+    }
+
+    table<Member>(kv, "ok").withIndexes({ email: { unique: true } });
+
+    // @ts-expect-error `age` is optional, so some rows would be missing from the index.
+    table<Member>(kv, "bad").withIndexes({ age: {} });
+
+    // @ts-expect-error `tags` is an array, which KV cannot use as a key part.
+    table<Member>(kv, "bad").withIndexes({ tags: {} });
+
+    // @ts-expect-error `nope` is not a field of Member.
+    table<Member>(kv, "bad").withIndexes({ nope: {} });
+
+    return Promise.resolve();
+  });
+});
+
+Deno.test("indexes are declared with withIndexes, not in the options", async () => {
+  await withKv((kv) => {
+    interface Member {
+      email: string;
+      name: string;
+    }
+
+    table<Member>(kv, "fine", { prefix: ["x"] });
+
+    table<Member>(kv, "fine", {
+      // @ts-expect-error indexes belong to withIndexes.
+      indexes: { email: { unique: true } },
+    });
+
+    return Promise.resolve();
+  });
+});

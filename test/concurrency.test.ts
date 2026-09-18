@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { ConflictError, table } from "../src/mod.ts";
-import { withUsers } from "./helpers.ts";
+import { ConflictError, table, UniqueConstraintError } from "../src/mod.ts";
+import { withKv, withUsers } from "./helpers.ts";
 
 Deno.test("update with a stale versionstamp throws ConflictError", async () => {
   await withUsers(async (users) => {
@@ -52,6 +52,14 @@ function kvWithInterleavedWrite(kv: Deno.Kv, write: () => Promise<unknown>): Den
       }
       return entry;
     },
+    getMany: async (batch: Deno.KvKey[]) => {
+      const entries = await kv.getMany(batch);
+      if (!done) {
+        done = true;
+        await write();
+      }
+      return entries;
+    },
     atomic: () => kv.atomic(),
     list: (selector: Deno.KvListSelector, options?: Deno.KvListOptions) =>
       kv.list(selector, options),
@@ -94,5 +102,29 @@ Deno.test("sequential updates on the same row chain versionstamps", async () => 
       assertEquals(current.age, i);
     }
     assertEquals((await users.get(user.id))!.age, 5);
+  });
+});
+
+Deno.test("a unique index survives two writers racing for the same value", async () => {
+  await withKv(async (kv) => {
+    interface Member {
+      email: string;
+      name: string;
+    }
+    const members = table<Member>(kv, "members").withIndexes({ email: { unique: true } });
+    const race = table<Member>(
+      kvWithInterleavedWrite(kv, () => members.set({ email: "a@b.com", name: "Winner" })),
+      "members",
+    ).withIndexes({ email: { unique: true } });
+
+    const error = await assertRejects(
+      () => race.set({ email: "a@b.com", name: "Loser" }),
+      UniqueConstraintError,
+    );
+    assertEquals(error.field, "email");
+
+    const rows = (await members.list()).rows;
+    assertEquals(rows.map((r) => r.name), ["Winner"], "only one row made it");
+    assertEquals((await members.findBy("email", "a@b.com"))!.name, "Winner");
   });
 });

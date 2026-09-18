@@ -34,3 +34,18 @@ export class ConflictError extends TypedKvError {
     );
   }
 }
+
+export class UniqueConstraintError extends TypedKvError {
+  constructor(
+    readonly table: string,
+    readonly field: string,
+    readonly value: unknown,
+    readonly owner: string,
+  ) {
+    super(
+      `Value ${
+        JSON.stringify(value)
+      } is already taken in unique index "${field}" of table "${table}".`,
+    );
+  }
+}
